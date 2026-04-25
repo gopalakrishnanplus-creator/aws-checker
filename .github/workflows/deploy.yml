@@ -65,6 +65,8 @@ jobs:
 
             "$VENV_PYTHON" -m pip install -r requirements.txt
             "$VENV_PYTHON" manage.py migrate --noinput
+            "$VENV_PYTHON" manage.py sync_seed_data
+            "$VENV_PYTHON" manage.py shell -c "from checker.models import ManagedResource; print({'total': ManagedResource.objects.count(), 'ec2': ManagedResource.objects.filter(service_type='ec2').count(), 'rds': ManagedResource.objects.filter(service_type='rds').count(), 's3': ManagedResource.objects.filter(service_type='s3').count()})"
             "$VENV_PYTHON" manage.py collectstatic --noinput
             "$VENV_PYTHON" manage.py check
 
