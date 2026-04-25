@@ -1,4 +1,4 @@
-# AWS Checker
+# AWS Checker 1
 
 AWS Checker is a Django project that monitors the EC2, RDS, and S3 inventory from your AWS account and runs the checklists from your `AWS availability check details.xlsx` workbook.
 
