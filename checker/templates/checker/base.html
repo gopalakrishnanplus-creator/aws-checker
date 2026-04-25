@@ -1,0 +1,37 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}AWS Checker{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'checker/styles.css' %}">
+</head>
+<body>
+    <div class="app-shell">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">AWS Checker</p>
+                <h1><a href="{% url 'checker:dashboard' %}">Availability Control Panel</a></h1>
+            </div>
+            <nav class="topnav">
+                <a href="{% url 'checker:dashboard' %}">Dashboard</a>
+                <a href="{% url 'checker:run-history' %}">Run History</a>
+                <a href="/admin/">Admin</a>
+            </nav>
+        </header>
+
+        {% if messages %}
+            <section class="flash-stack">
+                {% for message in messages %}
+                    <div class="flash flash-{{ message.tags|default:'info' }}">{{ message }}</div>
+                {% endfor %}
+            </section>
+        {% endif %}
+
+        <main class="page-body">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</body>
+</html>

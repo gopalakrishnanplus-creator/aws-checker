@@ -1,0 +1,132 @@
+{% extends "checker/base.html" %}
+
+{% block title %}Dashboard | AWS Checker{% endblock %}
+
+{% block content %}
+<section class="hero-card">
+    <div>
+        <p class="eyebrow">Account 736616688306</p>
+        <h2>Monitor EC2, RDS, and S3 from one place</h2>
+        <p class="hero-copy">
+            This dashboard runs the spreadsheet-defined checks against your AWS account using the boto3
+            credentials and profile configured on this machine.
+        </p>
+    </div>
+    <div class="hero-actions">
+        <form method="post" action="{% url 'checker:run-all' %}">
+            {% csrf_token %}
+            <button class="button button-primary" type="submit">Run Full Bulk Check</button>
+        </form>
+        <a class="button button-secondary" href="{% url 'checker:run-history' %}">View Logs</a>
+    </div>
+</section>
+
+<section class="stats-grid">
+    <article class="stat-card">
+        <span class="stat-label">Tracked resources</span>
+        <strong class="stat-value">{{ resource_total }}</strong>
+    </article>
+    {% for service in resources_by_service %}
+        <article class="stat-card">
+            <span class="stat-label">{{ service.label }}</span>
+            <strong class="stat-value">{{ service.count }}</strong>
+        </article>
+    {% endfor %}
+</section>
+
+{% for service in resources_by_service %}
+    <section class="section-card">
+        <div class="section-header">
+            <div>
+                <p class="eyebrow">{{ service.label }}</p>
+                <h3>{{ service.count }} resources</h3>
+            </div>
+            <form method="post" action="{% url 'checker:run-service' service.service_type %}">
+                {% csrf_token %}
+                <button class="button button-secondary" type="submit">Run All {{ service.label }}</button>
+            </form>
+        </div>
+
+        <div class="resource-grid">
+            {% for resource in service.resources %}
+                <article class="resource-card">
+                    <div class="resource-head">
+                        <div>
+                            <h4><a href="{{ resource.get_absolute_url }}">{{ resource.name }}</a></h4>
+                            <p class="resource-subtitle">{{ resource.resource_identifier }}</p>
+                        </div>
+                        <span class="pill pill-{{ resource.last_overall_status|default:'not-run' }}">
+                            {{ resource.last_overall_status|default:"not-run" }}
+                        </span>
+                    </div>
+
+                    <dl class="resource-meta">
+                        <div>
+                            <dt>Region</dt>
+                            <dd>{{ resource.region }}</dd>
+                        </div>
+                        <div>
+                            <dt>Endpoint</dt>
+                            <dd>{{ resource.endpoint_or_ip }}</dd>
+                        </div>
+                        <div>
+                            <dt>Last run</dt>
+                            <dd>{{ resource.last_run_at|date:"Y-m-d H:i:s"|default:"Never" }}</dd>
+                        </div>
+                    </dl>
+
+                    <div class="resource-actions">
+                        <form method="post" action="{% url 'checker:run-resource' resource.pk %}">
+                            {% csrf_token %}
+                            <button class="button button-primary" type="submit">Run Checks</button>
+                        </form>
+                        <a class="button button-ghost" href="{{ resource.get_absolute_url }}">Details</a>
+                    </div>
+                </article>
+            {% empty %}
+                <p class="empty-state">No {{ service.label }} resources are loaded yet.</p>
+            {% endfor %}
+        </div>
+    </section>
+{% endfor %}
+
+<section class="section-card">
+    <div class="section-header">
+        <div>
+            <p class="eyebrow">Recent activity</p>
+            <h3>Latest run log</h3>
+        </div>
+        <a class="button button-ghost" href="{% url 'checker:run-history' %}">Open full history</a>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Run</th>
+                    <th>Status</th>
+                    <th>Scope</th>
+                    <th>Started</th>
+                    <th>Checks</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in recent_runs %}
+                    <tr>
+                        <td>{{ run.label }}</td>
+                        <td><span class="pill pill-{{ run.status }}">{{ run.status }}</span></td>
+                        <td>{{ run.get_scope_display }}</td>
+                        <td>{{ run.started_at|date:"Y-m-d H:i:s" }}</td>
+                        <td>{{ run.check_count }}</td>
+                        <td><a href="{% url 'checker:run-detail' run.pk %}">View</a></td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6">No runs yet.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

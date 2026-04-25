@@ -1,0 +1,145 @@
+{% extends "checker/base.html" %}
+
+{% block title %}{{ resource.name }} | AWS Checker{% endblock %}
+
+{% block content %}
+<section class="hero-card compact-hero">
+    <div>
+        <p class="eyebrow">{{ resource.get_service_type_display }}</p>
+        <h2>{{ resource.name }}</h2>
+        <p class="hero-copy">{{ resource.resource_identifier }} · {{ resource.region }}</p>
+    </div>
+    <div class="hero-actions">
+        <form method="post" action="{% url 'checker:run-resource' resource.pk %}">
+            {% csrf_token %}
+            <button class="button button-primary" type="submit">Run Checks</button>
+        </form>
+        <a class="button button-secondary" href="{% url 'checker:dashboard' %}">Back to Dashboard</a>
+    </div>
+</section>
+
+<section class="detail-grid">
+    <article class="section-card">
+        <div class="section-header">
+            <div>
+                <p class="eyebrow">Resource</p>
+                <h3>Core details</h3>
+            </div>
+            <span class="pill pill-{{ resource.last_overall_status|default:'not-run' }}">
+                {{ resource.last_overall_status|default:"not-run" }}
+            </span>
+        </div>
+        <dl class="detail-list">
+            <div><dt>Account</dt><dd>{{ resource.account_id }}</dd></div>
+            <div><dt>Identifier</dt><dd>{{ resource.resource_identifier }}</dd></div>
+            <div><dt>Region</dt><dd>{{ resource.region }}</dd></div>
+            <div><dt>AZ</dt><dd>{{ resource.availability_zone|default:"-" }}</dd></div>
+            <div><dt>Endpoint</dt><dd>{{ resource.endpoint|default:"-" }}</dd></div>
+            <div><dt>Public IP</dt><dd>{{ resource.public_ip_address|default:"-" }}</dd></div>
+            <div><dt>Port</dt><dd>{{ resource.port|default:"-" }}</dd></div>
+            <div><dt>Engine</dt><dd>{{ resource.engine|default:"-" }}</dd></div>
+        </dl>
+    </article>
+
+    <article class="section-card">
+        <div class="section-header">
+            <div>
+                <p class="eyebrow">Metadata</p>
+                <h3>Imported spreadsheet details</h3>
+            </div>
+            <a class="button button-ghost" href="/admin/checker/managedresource/{{ resource.pk }}/change/">Edit config</a>
+        </div>
+        <dl class="detail-list">
+            {% for key, value in resource.metadata.items %}
+                <div><dt>{{ key }}</dt><dd>{{ value }}</dd></div>
+            {% empty %}
+                <div><dt>Metadata</dt><dd>No extra metadata stored.</dd></div>
+            {% endfor %}
+        </dl>
+        <div class="config-box">
+            <h4>check_config</h4>
+            <pre>{{ resource.check_config }}</pre>
+        </div>
+    </article>
+</section>
+
+<section class="section-card">
+    <div class="section-header">
+        <div>
+            <p class="eyebrow">Checklist</p>
+            <h3>Spreadsheet-driven checks</h3>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Check</th>
+                    <th>Priority</th>
+                    <th>Frequency</th>
+                    <th>Latest result</th>
+                    <th>Success criteria</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in checklist_rows %}
+                    <tr>
+                        <td>
+                            <strong>{{ row.definition.check_item }}</strong><br>
+                            <span class="muted">{{ row.definition.what_to_verify }}</span>
+                        </td>
+                        <td>{{ row.definition.priority }}</td>
+                        <td>{{ row.definition.frequency }}</td>
+                        <td>
+                            {% if row.latest_result %}
+                                <span class="pill pill-{{ row.latest_result.status }}">{{ row.latest_result.status }}</span>
+                                <div class="result-summary">{{ row.latest_result.summary }}</div>
+                            {% else %}
+                                <span class="pill pill-not-run">not-run</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ row.definition.success_criteria }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="section-card">
+    <div class="section-header">
+        <div>
+            <p class="eyebrow">Recent runs</p>
+            <h3>History for this resource</h3>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Run</th>
+                    <th>Status</th>
+                    <th>Started</th>
+                    <th>Checks</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in recent_runs %}
+                    <tr>
+                        <td>{{ run.label }}</td>
+                        <td><span class="pill pill-{{ run.status }}">{{ run.status }}</span></td>
+                        <td>{{ run.started_at|date:"Y-m-d H:i:s" }}</td>
+                        <td>{{ run.check_count }}</td>
+                        <td><a href="{% url 'checker:run-detail' run.pk %}">View</a></td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="5">No run history yet for this resource.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

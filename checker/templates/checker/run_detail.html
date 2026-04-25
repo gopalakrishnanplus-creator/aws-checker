@@ -1,0 +1,59 @@
+{% extends "checker/base.html" %}
+
+{% block title %}{{ run.label }} | AWS Checker{% endblock %}
+
+{% block content %}
+<section class="hero-card compact-hero">
+    <div>
+        <p class="eyebrow">Run log</p>
+        <h2>{{ run.label }}</h2>
+        <p class="hero-copy">{{ run.summary }}</p>
+    </div>
+    <div class="hero-actions">
+        <span class="pill pill-{{ run.status }}">{{ run.status }}</span>
+        <a class="button button-secondary" href="{% url 'checker:run-history' %}">Back to Logs</a>
+    </div>
+</section>
+
+<section class="stats-grid">
+    <article class="stat-card"><span class="stat-label">Resources</span><strong class="stat-value">{{ run.resource_count }}</strong></article>
+    <article class="stat-card"><span class="stat-label">Checks</span><strong class="stat-value">{{ run.check_count }}</strong></article>
+    <article class="stat-card"><span class="stat-label">Pass</span><strong class="stat-value">{{ run.pass_count }}</strong></article>
+    <article class="stat-card"><span class="stat-label">Warn</span><strong class="stat-value">{{ run.warn_count }}</strong></article>
+    <article class="stat-card"><span class="stat-label">Fail</span><strong class="stat-value">{{ run.fail_count }}</strong></article>
+    <article class="stat-card"><span class="stat-label">Skip</span><strong class="stat-value">{{ run.skip_count }}</strong></article>
+</section>
+
+{% for resource_name, results in grouped_results.items %}
+    <section class="section-card">
+        <div class="section-header">
+            <div>
+                <p class="eyebrow">Resource</p>
+                <h3>{{ resource_name }}</h3>
+            </div>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Check</th>
+                        <th>Status</th>
+                        <th>Observed</th>
+                        <th>Summary</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in results %}
+                        <tr>
+                            <td>{{ result.check_definition.check_item }}</td>
+                            <td><span class="pill pill-{{ result.status }}">{{ result.status }}</span></td>
+                            <td>{{ result.observed_value|default:"-" }}</td>
+                            <td>{{ result.summary }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endfor %}
+{% endblock %}
