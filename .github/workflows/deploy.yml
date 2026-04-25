@@ -1,0 +1,76 @@
+name: Deploy AWS Checker
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aws-checker-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_PORT }}
+          script: |
+            set -euo pipefail
+
+            APP_DIR=/var/www/aws-checker
+            BRANCH=main
+
+            if [ ! -d "$APP_DIR" ]; then
+              echo "Application directory not found: $APP_DIR" >&2
+              exit 1
+            fi
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              echo "Git repository not found in $APP_DIR" >&2
+              exit 1
+            fi
+
+            cd "$APP_DIR"
+
+            if [ -f "$APP_DIR/.env" ]; then
+              set -a
+              . "$APP_DIR/.env"
+              set +a
+            fi
+
+            git checkout "$BRANCH"
+            git pull origin "$BRANCH"
+
+            if [ -x "$APP_DIR/.venv/bin/python" ]; then
+              VENV_PYTHON="$APP_DIR/.venv/bin/python"
+            elif [ -x "$APP_DIR/venv/bin/python" ]; then
+              VENV_PYTHON="$APP_DIR/venv/bin/python"
+            elif [ -x "/var/www/venv/bin/python" ]; then
+              VENV_PYTHON="/var/www/venv/bin/python"
+            else
+              echo "Could not find a Python virtualenv for deployment." >&2
+              exit 1
+            fi
+
+            "$VENV_PYTHON" -m pip install -r requirements.txt
+            "$VENV_PYTHON" manage.py migrate --noinput
+            "$VENV_PYTHON" manage.py collectstatic --noinput
+            "$VENV_PYTHON" manage.py check
+
+            sudo systemctl restart aws_checker
+            sudo systemctl status aws_checker --no-pager
