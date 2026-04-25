@@ -8,7 +8,10 @@ SECRET_KEY = os.getenv(
     "django-insecure-aws-checker-dev-key-change-me",
 )
 DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
+ALLOWED_HOSTS = os.getenv(
+    "DJANGO_ALLOWED_HOSTS",
+    "127.0.0.1,localhost,65.0.225.40",
+).split(",")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
