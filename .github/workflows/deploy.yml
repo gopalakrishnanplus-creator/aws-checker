@@ -34,6 +34,8 @@ jobs:
 
             APP_DIR=/var/www/aws-checker
             BRANCH=main
+            SHARED_VENV_DIR=/var/www/venv
+            VENV_PYTHON="$SHARED_VENV_DIR/bin/python"
 
             if [ ! -d "$APP_DIR" ]; then
               echo "Application directory not found: $APP_DIR" >&2
@@ -56,14 +58,8 @@ jobs:
             git checkout "$BRANCH"
             git pull origin "$BRANCH"
 
-            if [ -x "$APP_DIR/.venv/bin/python" ]; then
-              VENV_PYTHON="$APP_DIR/.venv/bin/python"
-            elif [ -x "$APP_DIR/venv/bin/python" ]; then
-              VENV_PYTHON="$APP_DIR/venv/bin/python"
-            elif [ -x "/var/www/venv/bin/python" ]; then
-              VENV_PYTHON="/var/www/venv/bin/python"
-            else
-              echo "Could not find a Python virtualenv for deployment." >&2
+            if [ ! -x "$VENV_PYTHON" ]; then
+              echo "Could not find Python in shared virtualenv: $VENV_PYTHON" >&2
               exit 1
             fi
 
