@@ -21,25 +21,53 @@ AWS Checker is a Django project that monitors the EC2, RDS, and S3 inventory fro
    pip install -r requirements.txt
    ```
 
-2. Run migrations:
+2. Make sure MySQL has the database and user ready:
+
+   ```sql
+   CREATE DATABASE AWS_Logs CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   CREATE USER 'aws_checker'@'localhost' IDENTIFIED BY 'your-password';
+   GRANT ALL PRIVILEGES ON AWS_Logs.* TO 'aws_checker'@'localhost';
+   FLUSH PRIVILEGES;
+   ```
+
+3. Run migrations:
 
    ```bash
    python manage.py migrate
    ```
 
-3. Load the bundled resource and checklist data:
+4. Load the bundled resource and checklist data:
 
    ```bash
    python manage.py sync_seed_data
    ```
 
-4. Start the app:
+5. Start the app:
 
    ```bash
    python manage.py runserver
    ```
 
-5. Open [http://127.0.0.1:8000](http://127.0.0.1:8000)
+6. Open [http://127.0.0.1:8000](http://127.0.0.1:8000)
+
+## MySQL configuration
+
+The project is now configured to use MySQL by default with these settings:
+
+- Host: `localhost`
+- Port: `3306`
+- Database: `AWS_Logs`
+- User: `aws_checker`
+
+You can override them with environment variables:
+
+```bash
+export MYSQL_HOST=localhost
+export MYSQL_PORT=3306
+export MYSQL_DATABASE=AWS_Logs
+export MYSQL_USER=aws_checker
+export MYSQL_PASSWORD='your-password'
+```
 
 ## AWS setup
 

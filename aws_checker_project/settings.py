@@ -52,8 +52,15 @@ WSGI_APPLICATION = "aws_checker_project.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": os.getenv("MYSQL_DATABASE", "AWS_Logs"),
+        "USER": os.getenv("MYSQL_USER", "aws_checker"),
+        "PASSWORD": os.getenv("MYSQL_PASSWORD", ""),
+        "HOST": os.getenv("MYSQL_HOST", "localhost"),
+        "PORT": os.getenv("MYSQL_PORT", "3306"),
+        "OPTIONS": {
+            "charset": "utf8mb4",
+        },
     }
 }
 
