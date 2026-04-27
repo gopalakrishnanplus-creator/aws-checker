@@ -1,5 +1,4 @@
 import os
-import sys
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -68,12 +67,6 @@ DATABASES = {
     }
 }
 
-if "test" in sys.argv and os.getenv("DJANGO_TEST_USE_SQLITE", "1") == "1":
-    DATABASES["default"] = {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "test_db.sqlite3",
-    }
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -103,13 +96,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AWS_ACCOUNT_ID = os.getenv("AWS_ACCOUNT_ID", "736616688306")
 AWS_CHECKER_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "ap-south-1")
 AWS_CHECKER_HEALTHCHECK_TIMEOUT = int(os.getenv("AWS_CHECKER_HEALTHCHECK_TIMEOUT", "10"))
-PJT_INTEGRATION_BASE_URL = os.getenv("PJT_INTEGRATION_BASE_URL", "")
-PJT_INTEGRATION_BEARER_TOKEN = os.getenv("PJT_INTEGRATION_BEARER_TOKEN", "")
-PJT_INTEGRATION_CONTRACT_VERSION = os.getenv("PJT_INTEGRATION_CONTRACT_VERSION", "2026-04-15")
-PJT_INTEGRATION_TRIGGER_PATH = os.getenv(
-    "PJT_INTEGRATION_TRIGGER_PATH",
-    "/internal/testing/v1/runs/",
-)
 
 MESSAGE_TAGS = {
     10: "debug",

@@ -6,7 +6,6 @@ import uuid
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import timedelta
-from urllib.parse import urljoin
 
 import boto3
 import pymysql
@@ -18,7 +17,6 @@ from django.db import transaction
 from django.utils import timezone
 
 from checker.models import CheckDefinition, CheckResult, CheckRun, HealthStatus, ManagedResource
-from checker.services.pjt_integration import PJTIntegrationClient
 
 
 @dataclass
@@ -394,53 +392,6 @@ class CheckRunner:
         summary = "No recent critical log events found." if total_events == 0 else f"Found {total_events} matching log events."
         return CheckOutcome(status=status, summary=summary, observed_value=str(total_events))
 
-    def _http_probe(self, payload, *, default_method="GET"):
-        payload = dict(payload or {})
-        method = payload.get("method", default_method).upper()
-        timeout = payload.get("timeout", settings.AWS_CHECKER_HEALTHCHECK_TIMEOUT)
-        headers = dict(payload.get("headers") or {})
-        use_pjt_integration_auth = payload.get("use_pjt_integration_auth", False)
-        url = payload.get("url")
-        path = payload.get("path")
-
-        if use_pjt_integration_auth:
-            client = PJTIntegrationClient()
-            url = client.build_url(path=path, url=url)
-            headers = client.build_headers(headers=headers)
-        elif not url and path:
-            base = settings.PJT_INTEGRATION_BASE_URL.rstrip("/")
-            if not base:
-                raise ValueError(
-                    "PJT_INTEGRATION_BASE_URL is required when an HTTP probe uses a relative path."
-                )
-            url = urljoin(base + "/", path.lstrip("/"))
-
-        if not url:
-            raise ValueError("HTTP probe is missing a target url or path.")
-
-        request_kwargs = {
-            "headers": headers,
-            "timeout": timeout,
-            "allow_redirects": payload.get("allow_redirects", True),
-        }
-        if "json" in payload:
-            request_kwargs["json"] = payload["json"]
-        if "data" in payload:
-            request_kwargs["data"] = payload["data"]
-        if "params" in payload:
-            request_kwargs["params"] = payload["params"]
-
-        response = requests.request(method, url, **request_kwargs)
-        expected_status_codes = payload.get("expected_status_codes")
-        if expected_status_codes is None and payload.get("expected_status") is not None:
-            expected_status_codes = [payload["expected_status"]]
-        expected_substring = payload.get("expected_substring")
-
-        ok = response.ok if expected_status_codes is None else response.status_code in expected_status_codes
-        if expected_substring:
-            ok = ok and expected_substring in response.text
-        return response, ok, url
-
     def _prepare_s3_probe(self, resource, context):
         if "s3_probe" in context:
             return context["s3_probe"]
@@ -563,32 +514,19 @@ class CheckRunner:
     def _ec2_health_url_app_response(self, resource, _definition, _context):
         config = resource.check_config or {}
         url = config.get("health_check_url")
-        path = config.get("health_check_path")
-        if not url and not path:
+        if not url:
             return CheckOutcome(
                 status=HealthStatus.SKIP,
-                summary="HTTP probe skipped. Add check_config.health_check_url or health_check_path to test the application endpoint.",
+                summary="HTTP probe skipped. Add check_config.health_check_url to test the application endpoint.",
             )
-        response, ok, resolved_url = self._http_probe(
-            {
-                "url": url,
-                "path": path,
-                "method": config.get("health_check_method", "GET"),
-                "headers": config.get("health_check_headers", {}),
-                "json": config.get("health_check_json"),
-                "data": config.get("health_check_data"),
-                "expected_status_codes": config.get("health_check_expected_status_codes"),
-                "expected_status": config.get("health_check_expected_status"),
-                "expected_substring": config.get("expected_substring"),
-                "use_pjt_integration_auth": config.get("use_pjt_integration_auth", False),
-            },
-            default_method="GET",
-        )
+        response = requests.get(url, timeout=settings.AWS_CHECKER_HEALTHCHECK_TIMEOUT)
+        expected_substring = config.get("expected_substring")
+        ok = response.ok and (expected_substring in response.text if expected_substring else True)
         return CheckOutcome(
             status=HealthStatus.PASS if ok else HealthStatus.FAIL,
             summary=f"HTTP probe returned {response.status_code}.",
             observed_value=str(response.status_code),
-            details={"url": resolved_url},
+            details={"url": url},
         )
 
     def _ec2_process_service_running(self, resource, _definition, _context):
@@ -659,14 +597,10 @@ class CheckRunner:
             )
         failures = []
         for target in targets:
-            if target.get("type") in {"http", "integration"}:
-                try:
-                    response, ok, resolved_url = self._http_probe(target, default_method="GET")
-                except Exception as exc:
-                    failures.append({"target": target, "error": str(exc)})
-                    continue
-                if not ok:
-                    failures.append({"target": target, "status_code": response.status_code, "url": resolved_url})
+            if target.get("type") == "http":
+                response = requests.get(target["url"], timeout=settings.AWS_CHECKER_HEALTHCHECK_TIMEOUT)
+                if not response.ok:
+                    failures.append({"target": target, "status_code": response.status_code})
             else:
                 try:
                     self._probe_tcp(target["host"], target["port"])
