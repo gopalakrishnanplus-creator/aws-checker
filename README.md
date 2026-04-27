@@ -67,6 +67,10 @@ export MYSQL_PORT=3306
 export MYSQL_DATABASE=AWS_Logs
 export MYSQL_USER=aws_checker
 export MYSQL_PASSWORD='your-password'
+export PJT_INTEGRATION_BASE_URL='https://stage.red-flag-alerts.co.in'
+export PJT_INTEGRATION_BEARER_TOKEN='your-staging-token'
+export PJT_INTEGRATION_CONTRACT_VERSION='2026-04-15'
+export PJT_INTEGRATION_TRIGGER_PATH='/internal/testing/v1/runs/'
 ```
 
 ## AWS setup
@@ -93,13 +97,22 @@ Examples:
 {
   "ports": [22, 80, 443],
   "health_check_url": "https://example.com/health",
+  "health_check_method": "GET",
   "expected_substring": "ok",
   "ssm_command": "systemctl is-active nginx",
   "rds_targets": [{"host": "db.example", "port": 3306}],
   "s3_targets": ["example-bucket"],
   "dependency_targets": [
     {"type": "tcp", "host": "redis.internal", "port": 6379},
-    {"type": "http", "url": "https://api.example.com/ready"}
+    {"type": "http", "url": "https://api.example.com/ready"},
+    {
+      "type": "http",
+      "path": "/internal/testing/v1/runs/",
+      "method": "POST",
+      "use_pjt_integration_auth": true,
+      "json": {"source": "aws-checker"},
+      "expected_status_codes": [200, 201, 202]
+    }
   ],
   "cpu_threshold": 80,
   "memory_threshold": 80,
@@ -108,6 +121,27 @@ Examples:
   ]
 }
 ```
+
+## PJT staging integration
+
+The project now supports authenticated integration HTTP requests using these environment variables:
+
+- `PJT_INTEGRATION_BASE_URL`
+- `PJT_INTEGRATION_BEARER_TOKEN`
+- `PJT_INTEGRATION_CONTRACT_VERSION`
+- `PJT_INTEGRATION_TRIGGER_PATH`
+
+To manually trigger the staging endpoint from the server:
+
+```bash
+python manage.py trigger_pjt_integration_run --payload-json '{"source":"aws-checker"}'
+```
+
+To use the same staging connection inside resource checks, add an HTTP dependency target with:
+
+- `"path"` instead of a full URL when you want it resolved relative to `PJT_INTEGRATION_BASE_URL`
+- `"use_pjt_integration_auth": true` to add both the bearer token and `X-Contract-Version`
+- `"method": "POST"` for trigger endpoints
 
 ### RDS
 
