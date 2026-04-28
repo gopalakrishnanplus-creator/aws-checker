@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -66,6 +67,12 @@ DATABASES = {
         },
     }
 }
+
+if "test" in sys.argv and os.getenv("DJANGO_TEST_USE_SQLITE", "1") == "1":
+    DATABASES["default"] = {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "test_db.sqlite3",
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {

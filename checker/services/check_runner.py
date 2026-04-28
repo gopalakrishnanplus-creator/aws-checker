@@ -380,14 +380,45 @@ class CheckRunner:
         logs = self._client("logs", resource.region)
         start_time = int((timezone.now() - timedelta(minutes=15)).timestamp() * 1000)
         total_events = 0
+        checked_groups = 0
+        missing_groups = []
         for group in log_groups:
-            response = logs.filter_log_events(
-                logGroupName=group,
-                startTime=start_time,
-                filterPattern=pattern,
-                limit=20,
-            )
+            try:
+                response = logs.filter_log_events(
+                    logGroupName=group,
+                    startTime=start_time,
+                    filterPattern=pattern,
+                    limit=20,
+                )
+            except ClientError as exc:
+                error_code = exc.response.get("Error", {}).get("Code")
+                if error_code == "ResourceNotFoundException":
+                    missing_groups.append(group)
+                    continue
+                raise
+            checked_groups += 1
             total_events += len(response.get("events", []))
+
+        if checked_groups == 0 and missing_groups:
+            return CheckOutcome(
+                status=HealthStatus.SKIP,
+                summary=(
+                    "Log inspection skipped because the expected CloudWatch log group does not exist. "
+                    "This usually means RDS log exports or Enhanced Monitoring are not enabled."
+                ),
+                details={"missing_groups": missing_groups},
+            )
+
+        if missing_groups:
+            return CheckOutcome(
+                status=HealthStatus.WARN if total_events == 0 else HealthStatus.FAIL,
+                summary=(
+                    "Checked available log groups, but some expected CloudWatch log groups were missing."
+                ),
+                observed_value=str(total_events),
+                details={"missing_groups": missing_groups, "matched_events": total_events},
+            )
+
         status = HealthStatus.PASS if total_events == 0 else HealthStatus.FAIL
         summary = "No recent critical log events found." if total_events == 0 else f"Found {total_events} matching log events."
         return CheckOutcome(status=status, summary=summary, observed_value=str(total_events))

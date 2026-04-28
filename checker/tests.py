@@ -1,5 +1,6 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
+from botocore.exceptions import ClientError
 from django.core.management import call_command
 from django.test import Client, TestCase
 from io import StringIO
@@ -59,3 +60,21 @@ class RunnerTests(TestCase):
         self.assertEqual(run.status, HealthStatus.ERROR)
         self.assertEqual(first_result.status, HealthStatus.ERROR)
         self.assertIn("AWS credentials are not configured", first_result.summary)
+
+    @patch.object(CheckRunner, "_client")
+    def test_rds_missing_log_group_is_skipped_cleanly(self, mocked_client):
+        error_response = {
+            "Error": {
+                "Code": "ResourceNotFoundException",
+                "Message": "The specified log group does not exist.",
+            }
+        }
+        mocked_logs = Mock()
+        mocked_logs.filter_log_events.side_effect = ClientError(error_response, "FilterLogEvents")
+        mocked_client.return_value = mocked_logs
+        resource = ManagedResource.objects.filter(service_type="rds").first()
+
+        outcome = CheckRunner()._rds_db_logs_recent_errors(resource, None, {})
+
+        self.assertEqual(outcome.status, HealthStatus.SKIP)
+        self.assertIn("does not exist", outcome.summary)
